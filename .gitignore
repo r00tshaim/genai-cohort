@@ -1,0 +1,50 @@
+.env
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+.ruff_cache/
+htmlcov/
+.nox/
+.egg-info/
+dist/
+build/
+*.whl
+
+# Operating System Files
+.DS_Store # macOS specific
+.Trashes # macOS specific
+Thumbs.db # Windows specific
+
+# IDE specific files
+.idea/ # PyCharm
+.vscode/ # VS Code (often includes launch configs, so be careful what you ignore here)
+*.sublime-project
+*.sublime-workspace
+*.tmproj
+
+# Test / Coverage / Linting
+.coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+pytest.ini # You might want to include this if it contains project-specific config
+.pylintrc # You might want to include this if it contains project-specific config
+
+# Data files (usually large or sensitive)
+*.log
+*.sqlite3
+*.db
+data/
+media/
+
+# Jupyter Notebook Specific
+.ipynb_checkpoints/
