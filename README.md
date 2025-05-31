@@ -9,7 +9,9 @@ Sampling → Next Token → Repeat → Final Output → Detokenization
 ## Prompting
 
 Zero shot prompting
+
 Few shots prompting
+
 Chain of Thought Prompting (CoT)
 
 ## Agents
