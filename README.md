@@ -1,7 +1,15 @@
 # genai-cohort
 
-## tokenization.py
-    demonstrates Tokenization phase of LLM pipeline ie phaseI
+## Summary of LLM model working 
 
-## vector-embedding.py
-    demonstrates Vector embedding phase of LLM pipeline ie phaseII
+Text Input → Tokenization → Embeddings → Positional Encoding → 
+Transformer Blocks (Self-Attention + FFN) → Logits →
+Sampling → Next Token → Repeat → Final Output → Detokenization
+
+## Prompting
+
+Zero shot prompting
+Few shots prompting
+Chain of Thought Prompting (CoT)
+
+## Agents
