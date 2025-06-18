@@ -40,7 +40,7 @@ Extract facts about:
 Return ONLY a valid JSON object like this:
 {{
     "facts": ["User likes playing football", "User's name is Shaim"],
-    "relationships": ["John is user's father", "Ziya is user's sister"]
+    "relationships": ["John is Shaim's father", "Ziya is Shaim's sister"]
 }}
 
 Important: Return ONLY the JSON object, no other text."""
@@ -286,24 +286,44 @@ Important: Return ONLY the JSON object, no other text."""
 
     def chat(self, user_input):
         """Main chat function with memory"""
+
+        # Determine if this is essentially the "first interaction" based on persistent memory state
+        # This will be true if both facts and relationships are empty, indicating a fresh start
+        is_initial_interaction = (
+            len(self.persistent_memory["facts"]) == 0 and
+            len(self.persistent_memory["relationships"]) == 0
+        )
+
         # Extract facts and relationships from user input first
         self.extract_from_user_input(user_input)
         
         # Add user input to conversation history
         self.add_to_conversation("user", user_input)
         
-        # Build context prompt
-        full_prompt = self.build_context_prompt(user_input)
+        # No need to pass memory context for first interaciton
+        if not is_initial_interaction:
+            # Build context prompt
+            full_prompt = self.build_context_prompt(user_input)
         
         try:
-            # Call the LLM
-            response = self.client.chat(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": full_prompt}
-                ]
-            )
+            if not is_initial_interaction:
+                # Call the LLM with user input + memory context
+                response = self.client.chat(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": self.system_prompt},
+                        {"role": "user", "content": full_prompt}
+                    ]
+                )
+            else: 
+                 # Call the LLM with user input (for first iteraction)
+                response = self.client.chat(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": self.system_prompt},
+                        {"role": "user", "content": user_input}
+                    ]
+                )
             
             assistant_response = response['message']['content']
             
