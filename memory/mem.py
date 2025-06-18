@@ -27,22 +27,23 @@ Use this context to provide more personalized and contextually aware responses. 
 Be natural and conversational while leveraging the provided context."""
 
         # Fact extraction prompt
-        self.fact_extraction_prompt = """Based on the following conversation, extract any important facts or relationships about the user. 
-Return ONLY a JSON object with this structure:
-{
-    "facts": ["fact1", "fact2"],
-    "relationships": ["relationship1", "relationship2"]
-}
+        self.fact_extraction_prompt = """You are a fact extractor. Extract important facts and relationships from the user's message.
 
-Rules:
-- Extract personal information, preferences, interests, background, goals
-- Include relationships between concepts the user mentioned
-- Be specific and concise
-- If no important facts found, return empty arrays
-- ONLY return valid JSON, no other text
+User message: "{conversation}"
 
-Conversation:
-{conversation}"""
+Extract facts about:
+- Personal information (name, age, location, job, family)
+- Interests, hobbies, preferences
+- Skills, background, goals
+- Relationships between people, concepts, or preferences
+
+Return ONLY a valid JSON object like this:
+{{
+    "facts": ["User likes playing football", "User's name is Shaim"],
+    "relationships": ["John is user's father", "Ziya is user's sister"]
+}}
+
+Important: Return ONLY the JSON object, no other text."""
 
     def load_memory(self):
         """Load persistent memory from JSON file"""
@@ -222,8 +223,72 @@ Conversation:
                 self.persistent_memory["summaries"] = self.persistent_memory["summaries"][-10:]
             self.save_memory()
 
+    def extract_from_user_input(self, user_input):
+        """Extract facts and relationships from user input before responding"""
+        if not user_input.strip():
+            return
+        
+        print(f"🔍 Analyzing: {user_input}")  # Debug print
+        
+        try:
+            # Call LLM to extract facts from user input
+            response = self.client.chat(
+                model=self.model,
+                messages=[
+                    {"role": "user", "content": self.fact_extraction_prompt.format(conversation=user_input)}
+                ]
+            )
+            
+            extracted_text = response['message']['content'].strip()
+            print(f"🔍 LLM Response: {extracted_text}")  # Debug print
+            
+            # Try to parse JSON response
+            try:
+                # Clean the response - sometimes LLM adds extra text
+                if extracted_text.startswith('```json'):
+                    extracted_text = extracted_text.replace('```json', '').replace('```', '').strip()
+                elif extracted_text.startswith('```'):
+                    extracted_text = extracted_text.replace('```', '').strip()
+                
+                # Find JSON object in the response
+                start_idx = extracted_text.find('{')
+                end_idx = extracted_text.rfind('}') + 1
+                if start_idx != -1 and end_idx != 0:
+                    json_str = extracted_text[start_idx:end_idx]
+                    extracted_data = json.loads(json_str)
+                else:
+                    extracted_data = json.loads(extracted_text)
+                
+                # Add new facts
+                if "facts" in extracted_data and extracted_data["facts"]:
+                    for fact in extracted_data["facts"]:
+                        if fact and fact not in self.persistent_memory["facts"]:
+                            self.persistent_memory["facts"].append(fact)
+                            print(f"💡 Learned: {fact}")
+                
+                # Add new relationships
+                if "relationships" in extracted_data and extracted_data["relationships"]:
+                    for rel in extracted_data["relationships"]:
+                        if rel and rel not in self.persistent_memory["relationships"]:
+                            self.persistent_memory["relationships"].append(rel)
+                            print(f"🔗 Connected: {rel}")
+                
+                # Save if we learned something new
+                if (extracted_data.get("facts") or extracted_data.get("relationships")):
+                    self.save_memory()
+                    
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON Parse Error: {e}")  # Debug print
+                print(f"Raw response: {extracted_text}")
+                
+        except Exception as e:
+            print(f"❌ Extraction Error: {e}")  # Debug print
+
     def chat(self, user_input):
         """Main chat function with memory"""
+        # Extract facts and relationships from user input first
+        self.extract_from_user_input(user_input)
+        
         # Add user input to conversation history
         self.add_to_conversation("user", user_input)
         
@@ -244,9 +309,6 @@ Conversation:
             
             # Add assistant response to conversation history
             self.add_to_conversation("assistant", assistant_response)
-            
-            # Extract facts and relationships after each exchange
-            self.extract_facts_and_relationships()
             
             # Keep conversation history manageable (last 20 messages)
             if len(self.conversation_history) > 20:
@@ -295,10 +357,10 @@ def main():
     # Initialize the memory system
     llm_memory = SimpleLLMMemory()
     
-    print("🧠 Simple LLM with Automatic Memory System")
-    print("Commands: /fact <text>, /rel <text>, /summary <text>, /stats, /clear, /file, /quit")
-    print("The system automatically learns facts and relationships from your conversations!")
-    print("-" * 70)
+    print("🧠 Simple LLM with Auto-Learning Memory")
+    print("Just chat naturally - I'll automatically learn about you!")
+    print("Commands: /stats, /clear, /file, /quit")
+    print("-" * 50)
     
     # Show file location
     llm_memory.show_memory_file_location()
@@ -318,23 +380,10 @@ def main():
         elif user_input.lower() == '/file':
             llm_memory.show_memory_file_location()
             continue
-        elif user_input.startswith('/fact '):
-            fact = user_input[6:]  # Remove '/fact '
-            llm_memory.add_fact(fact)
-            continue
-        elif user_input.startswith('/rel '):
-            relationship = user_input[5:]  # Remove '/rel '
-            llm_memory.add_relationship(relationship)
-            continue
-        elif user_input.startswith('/summary '):
-            summary = user_input[9:]  # Remove '/summary '
-            llm_memory.add_summary(summary)
-            print(f"📝 Added summary: {summary}")
-            continue
         elif not user_input:
             continue
         
-        # Get response from LLM with memory context
+        # Get response from LLM with automatic memory learning
         response = llm_memory.chat(user_input)
         print(f"\n🤖 Assistant: {response}")
 

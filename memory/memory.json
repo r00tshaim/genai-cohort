@@ -1,0 +1,16 @@
+{
+  "facts": [
+    "User likes playing football",
+    "User likes spicy food",
+    "User likes sweet too much",
+    "User prefers to play football on cloudy days not in summer",
+    "User's name is 'Shaim'"
+  ],
+  "relationships": [
+    "John is user's father",
+    "Ziya is user's sister name",
+    "User's father likes spicy food"
+  ],
+  "summaries": [],
+  "last_updated": "2025-06-18T12:36:44.128509"
+}
