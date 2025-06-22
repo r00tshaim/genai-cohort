@@ -1,16 +1,39 @@
 from typing import TypedDict #way to indicate the expected data types of variables
-import dotenv
+from dotenv import load_dotenv  # For loading environment variables
 from typing import Literal
 from pydantic import BaseModel, Field  # For defining data models
-import json  # For parsing JSON responses
+import os
 
 from ollama import Client  # Import the ollama client
 
+from langfuse.openai import OpenAI
 
+
+# Load environment variables from .env file
+load_dotenv()
+
+
+# Get keys for your project from the project settings page
+os.environ["LANGFUSE_PUBLIC_KEY"] = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+os.environ["LANGFUSE_SECRET_KEY"] = os.getenv("LANGFUSE_SECRET_KEY", "")
+os.environ["LANGFUSE_HOST"] = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")  # Default to US region
+
+
+# http://localhost:11434/v1 - v1 versioned API root, introduced for consistency with OpenAI's API format.
+#If you're using LangChain, LangGraph, or LangSmith, they usually expect OpenAI-style routes like /v1/chat/completions
+OLLAMA_URL_V1 = "http://localhost:11434/v1"
+
+# http://localhost:11434 - Ollama native endpoint
 OLLAMA_URL = "http://localhost:11434"
 # Initialize a separate Ollama client for direct chat completions
 # This allows you to call the LLM for chat in the same way you were calling OpenAI
-ollama_chat_client = Client(host=OLLAMA_URL)
+#ollama_chat_client = Client(host=OLLAMA_URL)
+
+# Use Langfuse's OpenAI wrapper pointed at Ollama
+client = OpenAI(
+    base_url=OLLAMA_URL_V1,
+    api_key="ollama",  # any placeholder
+)
 
 
 class State(TypedDict):
@@ -56,17 +79,18 @@ def detect_query(state: State) -> State:
 
     # Call the Ollama LLM for chat completion using the ollama_chat_client
     # The model "gemma3:latest" is specified here, aligning with your Ollama setup.
-    response = ollama_chat_client.chat(
+    response = client.beta.chat.completions.parse(
         model="mistral:latest",
         messages=messages,
-        format=DetectQueryResponse.model_json_schema()
+        response_format=DetectQueryResponse
     )
 
-    print("[detect_query] Response from LLM:", response['message']['content'])
+    print("🕵️ [detect_query] Response from LLM:", response.choices[0].message.content)
 
-    json_response = json.loads(response['message']['content'])
+    # Parse the structured response
+    parsed_response = response.choices[0].message.parsed
 
-    state["is_coding_question"] = json_response.get('is_coding_question_ai', False)
+    state["is_coding_question"] = parsed_response.is_coding_question_ai
 
      
     if state["is_coding_question"]:
@@ -113,17 +137,18 @@ def solve_coding_question(state: State) -> State:
 
     # Call the Ollama LLM for chat completion using the ollama_chat_client
     # The model "gemma3:latest" is specified here, aligning with your Ollama setup.
-    response = ollama_chat_client.chat(
+    response = client.beta.chat.completions.parse(
         model="mistral:latest",
         messages=messages,
-        format=CodingQuestionResponse.model_json_schema()
+        response_format=CodingQuestionResponse
     )
 
-    print("[solve_coding_question] Response from LLM:", response['message']['content'])
+    print("💻 [solve_coding_question] Response from LLM:", response.choices[0].message.content)
 
-    json_response = json.loads(response['message']['content'])
+    # Parse the structured response
+    parsed_response = response.choices[0].message.parsed
 
-    state["ai_response"] = json_response.get('ai_response', "No response provided.")
+    state["ai_response"] = parsed_response.ai_response
     return state
 
 def solve_simple_question(state: State) -> State:
@@ -147,17 +172,18 @@ def solve_simple_question(state: State) -> State:
 
     # Call the Ollama LLM for chat completion using the ollama_chat_client
     # The model "gemma3:latest" is specified here, aligning with your Ollama setup.
-    response = ollama_chat_client.chat(
+    response = client.beta.chat.completions.parse(
         model="mistral:latest",
         messages=messages,
-        format=GeneralQuestionResponse.model_json_schema()
+        response_format=GeneralQuestionResponse
     )
 
-    print("[solve_simple_question] Response from LLM:", response['message']['content'])
+    print("🤖 [solve_simple_question] Response from LLM:", response.choices[0].message.content)
 
-    json_response = json.loads(response['message']['content'])
+    # Parse the structured response
+    parsed_response = response.choices[0].message.parsed
     
-    state["ai_response"] = json_response.get('ai_response_general', "No response provided.")
+    state["ai_response"] = parsed_response.ai_response_general
     return state
 
 
@@ -196,14 +222,15 @@ def run_graph(user_message: str) -> State:
         "is_coding_question": False
     }
 
+    #print("🚦 Running the graph with the initial state...")
+
     # Run the graph with the initial state
     final_state = graph.invoke(initial_state)
 
     return final_state
 
 if __name__ == "__main__":
-    # Load environment variables from .env file
-    dotenv.load_dotenv()
+
 
     # Example user message
     user_message = input("Enter your message: ")
@@ -217,4 +244,4 @@ if __name__ == "__main__":
     result_state = run_graph(user_message)
 
     # Print the final state
-    print("Final State:", result_state)
+    print("📝 Final State:", result_state)
