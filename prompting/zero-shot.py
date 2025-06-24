@@ -29,3 +29,12 @@ if __name__ == "__main__":
     
     # Output:
     # Response: The capital of France is Paris.
+
+
+def generatePassword(length=12):
+    import random
+    import string
+
+    characters = string.ascii_letters + string.digits + string.punctuation
+    password = ''.join(random.choice(characters) for i in range(length))
+    return password
